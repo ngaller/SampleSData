@@ -29,12 +29,7 @@ public partial class _Default : System.Web.UI.Page
 
         Stopwatch stopWatch = new Stopwatch();
         stopWatch.Start();
-        ResourceLocator[] createdAccounts = new ResourceLocator[numAccounts];
-        while (numAccounts > 0)
-        {
-            createdAccounts[numAccounts-1] = CreateAccount(svc, numContacts, numOpportunities);
-            numAccounts--;
-        }
+        ResourceLocator[] createdAccounts = CreateAccounts(svc, numAccounts, numContacts, numOpportunities);
         stopWatch.Stop();
         TimeSpan ts = stopWatch.Elapsed;
         txtResults.Text = String.Format("Total elapsed time: {0:00}:{1:00}:{2:00}.{3:00}",
@@ -51,6 +46,17 @@ public partial class _Default : System.Web.UI.Page
             DeleteResource(svc, "Account", acc);
         }
         
+    }
+
+    private ResourceLocator[] CreateAccounts(SDataService svc, int numAccounts, int numContacts, int numOpportunities)
+    {
+        ResourceLocator[] createdAccounts = new ResourceLocator[numAccounts];
+        while (numAccounts > 0)
+        {
+            createdAccounts[numAccounts - 1] = CreateAccount(svc, numContacts, numOpportunities);
+            numAccounts--;
+        }
+        return createdAccounts;
     }
 
     private ResourceLocator CreateAccount(SDataService ws, int numContacts, int numOpportunities)
@@ -76,13 +82,29 @@ public partial class _Default : System.Web.UI.Page
     private ResourceLocator CreateContact(SDataService ws, String accountId)
     {
         Dictionary<String, object> conValues = new Dictionary<string, object>();
-
-        return null;
+        conValues["Account"] = new SDataPayload { Key = accountId };
+        conValues["LastName"] = "Test";
+        conValues["FirstName"] = "Joe";
+        return CreateResource(ws, "Contact", conValues);
     }
 
     private ResourceLocator CreateOpportunity(SDataService ws, String accountId, ResourceLocator[] contactIds)
     {
-        return null;
+        Dictionary<String, object> oppValues = new Dictionary<string, object>();
+        oppValues["Account"] = new SDataPayload { Key = accountId };
+        oppValues["Description"] = "Test Opportunity";
+        oppValues["Owner"] = new SDataPayload { Key = "SYST00000001" };
+
+        SDataPayload[] contacts = new SDataPayload[contactIds.Length];
+        int i = 0;
+        foreach (ResourceLocator conId in contactIds)
+        {
+            SDataPayload oppCon = new SDataPayload { ResourceName = "OpportunityContact" };
+            oppCon.Values["Contact"] = new SDataPayload { Key = conId.Id };
+            contacts[i++] = oppCon;
+        }
+        oppValues["OpportunityContacts"] = contacts;
+        return CreateResource(ws, "Opportunity", oppValues, "opportunities"); 
     }
 
     private void DeleteResource(SDataService ws, String resourceName, ResourceLocator resourceId)
@@ -94,10 +116,10 @@ public partial class _Default : System.Web.UI.Page
     }
 
 
-    internal ResourceLocator CreateResource(SDataService ws, String resourceName, IDictionary<String, object> values)
+    internal ResourceLocator CreateResource(SDataService ws, String resourceName, IDictionary<String, object> values, string resourceKind = null)
     {
         var sru = new SDataSingleResourceRequest(ws);
-        sru.ResourceKind = resourceName.ToLower() + "s";
+        sru.ResourceKind = resourceKind == null ? resourceName.ToLower() + "s" : resourceKind;
         SDataPayload payload = new SDataPayload();
         payload.ResourceName = resourceName;
         payload.Namespace = SDATA_NS;
